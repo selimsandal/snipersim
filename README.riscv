@@ -40,6 +40,9 @@ Contents
 	git submodule update --init --recursive
 	export RV8_HOME=$(pwd)
 
+	Alternatively, `make BUILD_RISCV=1` will automatically download rv8 into
+	`$SNIPER_ROOT/riscv/rv8` if `RV8_HOME` is not already available.
+
 1c. Sniper and Pin
 
 	git clone -b riscv http://snipersim.org/<path-to-sniper>/sniper.git

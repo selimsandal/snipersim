@@ -24,7 +24,12 @@ ifeq ($(SNIPER_TARGET_ARCH),intel64)
   LD_FLAGS +=
 endif
 
-CXXFLAGS += -DPIN_REV=$(shell $(SIM_ROOT)/tools/pinversion.py $(PIN_HOME) | cut -d. -f3)
+PIN_REV := $(shell if [ -n "$(PIN_HOME)" ] && [ -e "$(PIN_HOME)" ]; then $(SIM_ROOT)/tools/pinversion.py "$(PIN_HOME)" 2>/dev/null | cut -d. -f3; fi)
+ifeq ($(PIN_REV),)
+PIN_REV := 71313
+endif
+
+CXXFLAGS += -DPIN_REV=$(PIN_REV)
 
 ifeq ($(BUILD_RISCV),0)
 CXXFLAGS += -DSNIPER_RISCV=0

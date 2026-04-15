@@ -17,6 +17,7 @@ ifeq ($(BUILD_TRACEONLY),0)
 FRONTEND_TARGETS += $(PIN_FRONTEND) $(DYNAMORIO_FRONTEND)
 endif
 SIM_TARGETS=$(LIB_DECODER) $(LIB_CARBON) $(LIB_SIFT) $(STANDALONE) $(FRONTEND_TARGETS) $(LIB_TORCH)
+DEPENDENCY_TARGETS=package_deps xed mcpat torch linux builddir showdebugstatus
 
 PYTHON2=python2
 
@@ -29,6 +30,7 @@ all: message dependencies $(SIM_TARGETS) configscripts
 #NOTE PINPLAY: This is not updated to the latest version: 1) SDE already contains pinplay, 2) the pinplay-driver (inside the pinplay_toolkit github) cannot easily be build for PIN. 3) The latest pinplay version has a bug preventing to read pinballs.
 #KNOWN ISSUE WITH SDE: It cannot run properly inside virtualbox
 
+ifeq ($(BUILD_TRACEONLY),0)
 # Check for errors. Only one value should be set
 TARGET_COUNT:=0
 # For Pin
@@ -66,10 +68,19 @@ else
 # Error, cannot be >= 2
 $(error One or more tools requested for build. Only one supported USE_PIN=$(USE_PIN) USE_PINPLAY=$(USE_PINPLAY) USE_SDE=$(USE_SDE))
 endif
+endif
 
 include common/Makefile.common
 
-dependencies: package_deps sde_kit $(PIN_ROOT) pin xed mcpat torch linux builddir showdebugstatus
+ifeq ($(BUILD_TRACEONLY),0)
+DEPENDENCY_TARGETS += sde_kit $(PIN_ROOT) pin
+endif
+
+ifeq ($(BUILD_RISCV),1)
+DEPENDENCY_TARGETS += rv8
+endif
+
+dependencies: $(DEPENDENCY_TARGETS)
 
 BUILD_CAPSTONE ?=
 ifeq ($(BUILD_ARM),1)
@@ -92,12 +103,14 @@ $(SIM_TARGETS): dependencies
 
 message:
 	@echo -n Building for x86 \($(SNIPER_TARGET_ARCH)\)
+ifeq ($(BUILD_TRACEONLY),0)
 ifneq (,$(USE_PIN))
 	@echo -n " with Pin"
 else ifneq (,$(USE_PINPLAY))
 	@echo -n " with Pinplay"
 else
 	@echo -n " with SDE"
+endif
 endif
 ifeq ($(BUILD_DYNAMORIO),1)
 	@echo -n " and DynamoRIO"
@@ -148,6 +161,17 @@ endif
 
 $(LIB_DECODER): $(LIB_CARBON)
 	@$(MAKE) $(MAKE_QUIET) -C $(SIM_ROOT)/decoder_lib 
+
+RV8_GIT_URL=https://github.com/nus-comparch/rv8.git
+RV8_GIT_BRANCH=sift
+RV8_DEP=$(RV8_HOME)/src/asm/meta.h
+rv8: $(RV8_DEP)
+$(RV8_DEP):
+	$(_MSG) '[DOWNLO] rv8'
+	$(_CMD) mkdir -p $(dir $(RV8_HOME))
+	$(_CMD) git clone --quiet --branch $(RV8_GIT_BRANCH) --depth 1 $(RV8_GIT_URL) $(RV8_HOME)
+	$(_CMD) git -C $(RV8_HOME) submodule update --init --recursive
+	$(_CMD) touch $(RV8_HOME)/.autodownloaded
 
 DYNAMORIO_GITID=246ddb28e7848b2d09d2b9909f99a6da9b2ce35e
 DYNAMORIO_INSTALL=$(SIM_ROOT)/dynamorio
@@ -330,6 +354,8 @@ distclean: clean
 	$(_CMD) rm -rf mcpat
 	$(_MSG) '[DISTCL] Xed'
 	$(_CMD) rm -rf xed xed_kit mbuild
+	$(_MSG) '[DISTCL] rv8'
+	$(_CMD) if [ -e "$(RV8_INSTALL)/.autodownloaded" ]; then rm -rf "$(RV8_INSTALL)"; fi
 	$(_MSG) '[DISTCL] perf_event.h'
 	$(_CMD) rm -f include/linux/perf_event.h
 	$(_MSG) '[DISTCL] libtorch'
