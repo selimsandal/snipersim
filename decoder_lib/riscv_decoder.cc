@@ -175,7 +175,7 @@ unsigned int RISCVDecoder::num_operands(const DecodedInst * inst)
   unsigned int num_operands = 0;
   riscv::decode *dec = ((RISCVDecodedInst *)inst)->get_rv8_dec();
   const rv_operand_data *operand_data = rv_inst_operand_data[dec->op];
-  while (operand_data->type == rv_type_ireg && operand_data->type == rv_type_freg) { 
+  while (operand_data->operand_name != rv_operand_name_none && operand_data->type != rv_type_none) {
     num_operands++;
     operand_data++;
   }
@@ -215,11 +215,27 @@ Decoder::decoder_reg RISCVDecoder::mem_base_reg (const DecodedInst * inst, unsig
   return reg;
 }
 
+bool RISCVDecoder::mem_base_upate(const DecodedInst * inst, unsigned int mem_idx)
+{
+  (void)inst;
+  (void)mem_idx;
+  return false;
+}
+
+bool RISCVDecoder::has_index_reg (const DecodedInst * inst, unsigned int mem_idx)
+{
+  (void)inst;
+  (void)mem_idx;
+  return false;
+}
+
 /// Get the index register of the memory operand pointed by mem_idx
 Decoder::decoder_reg RISCVDecoder::mem_index_reg (const DecodedInst * inst, unsigned int mem_idx) 
 {
+  (void)inst;
+  (void)mem_idx;
   // no index reg
-  return 1;
+  return Decoder::DL_REG_INVALID;
 }
 
 /// Check if the operand mem_idx from instruction inst is read from memory
@@ -494,6 +510,37 @@ Decoder::decoder_reg RISCVDecoder::last_reg()
   return dl::last_reg; // enum reg_num defined in riscv_decoder.h
 }
 
+uint32_t RISCVDecoder::map_register(decoder_reg reg)
+{
+  return reg;
+}
+
+unsigned int RISCVDecoder::num_read_implicit_registers(const DecodedInst *inst)
+{
+  (void)inst;
+  return 0;
+}
+
+Decoder::decoder_reg RISCVDecoder::get_read_implicit_reg(const DecodedInst *inst, unsigned int idx)
+{
+  (void)inst;
+  (void)idx;
+  return Decoder::DL_REG_INVALID;
+}
+
+unsigned int RISCVDecoder::num_write_implicit_registers(const DecodedInst *inst)
+{
+  (void)inst;
+  return 0;
+}
+
+Decoder::decoder_reg RISCVDecoder::get_write_implicit_reg(const DecodedInst *inst, unsigned int idx)
+{
+  (void)inst;
+  (void)idx;
+  return Decoder::DL_REG_INVALID;
+}
+
 
 RISCVDecodedInst::RISCVDecodedInst(Decoder* d, const uint8_t * code, size_t size, uint64_t address)
 {
@@ -545,7 +592,7 @@ std::string format_str(const char* fmt, ...) //rv8 src/util/util.cc
 }
 
 /// Get a string with the disassembled instruction
-void RISCVDecodedInst::disassembly_to_str(char *str, int len) const
+std::string RISCVDecodedInst::disassembly_to_str() const
 { 
   riscv::decode dec = this->rv8_dec;
   std::string args;
@@ -605,9 +652,7 @@ void RISCVDecodedInst::disassembly_to_str(char *str, int len) const
     }
     fmt++;
 	}
-
-  strncpy(str, args.c_str(), len-1);
-  str[len-1] = '\0';
+  return args;
 }
 
 /// Check if this instruction is a NOP
@@ -676,6 +721,11 @@ bool RISCVDecodedInst::is_conditional_branch() const
   return res;
 }
 
+bool RISCVDecodedInst::is_indirect_branch() const
+{
+  return this->rv8_dec.op == rv_op_jalr;
+}
+
 /// Check if this instruction is a fence/barrier-type
 bool RISCVDecodedInst::is_barrier() const
 {
@@ -716,6 +766,11 @@ bool RISCVDecodedInst::is_mem_pair() const
 {
   // instr like ldnp, ldpsw, stnp, stp in ARM
   // no load/store pair instructions in RISCV
+  return false;
+}
+
+bool RISCVDecodedInst::is_writeback() const
+{
   return false;
 }
 

@@ -11,7 +11,12 @@ LIB_FOLLOW=$(SIM_ROOT)/pin/../lib/follow_execv.so
 LIB_SIFT=$(SIM_ROOT)/sift/libsift.a
 LIB_DECODER=$(SIM_ROOT)/decoder_lib/libdecoder.a
 LIB_TORCH=$(SIM_ROOT)/libtorch/lib/libtorch.so
-SIM_TARGETS=$(LIB_DECODER) $(LIB_CARBON) $(LIB_SIFT) $(LIB_PIN_SIM) $(LIB_FOLLOW) $(STANDALONE) $(PIN_FRONTEND) $(DYNAMORIO_FRONTEND) $(LIB_TORCH)
+BUILD_TRACEONLY ?= 0
+FRONTEND_TARGETS :=
+ifeq ($(BUILD_TRACEONLY),0)
+FRONTEND_TARGETS += $(PIN_FRONTEND) $(DYNAMORIO_FRONTEND)
+endif
+SIM_TARGETS=$(LIB_DECODER) $(LIB_CARBON) $(LIB_SIFT) $(STANDALONE) $(FRONTEND_TARGETS) $(LIB_TORCH)
 
 PYTHON2=python2
 
@@ -103,6 +108,9 @@ endif
 ifeq ($(BUILD_ARM),1)
 	@echo -n " and arm64"
 endif
+ifeq ($(BUILD_TRACEONLY),1)
+	@echo -n " [trace-only]"
+endif
 	@echo ""
 
 $(STANDALONE): $(LIB_CARBON) $(LIB_SIFT) $(LIB_DECODER)
@@ -132,7 +140,11 @@ $(LIB_CARBON):
 	@$(MAKE) $(MAKE_QUIET) -C $(SIM_ROOT)/common
 
 $(LIB_SIFT): $(LIB_CARBON)
+ifeq ($(BUILD_TRACEONLY),1)
+	@$(MAKE) $(MAKE_QUIET) -C $(SIM_ROOT)/sift $(notdir $(LIB_SIFT))
+else
 	@$(MAKE) $(MAKE_QUIET) -C $(SIM_ROOT)/sift
+endif
 
 $(LIB_DECODER): $(LIB_CARBON)
 	@$(MAKE) $(MAKE_QUIET) -C $(SIM_ROOT)/decoder_lib 
